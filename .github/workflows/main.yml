@@ -28,4 +28,14 @@ jobs:
         run: gradle wrapper --gradle-version 8.7
 
       - name: Grant execute permission for gradlew
-        run:
+        run: chmod +x gradlew
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jobprep-pk-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
