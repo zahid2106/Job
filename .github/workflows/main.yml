@@ -20,10 +20,8 @@ jobs:
 
       - name: Add Android SDK tools to PATH
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-          ls "$ANDROID_HOME/cmdline-tools" || true
 
       - name: Accept Android SDK licenses
         run: yes | sdkmanager --licenses || true
@@ -31,18 +29,35 @@ jobs:
       - name: Install required SDK packages
         run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
+      - name: Locate Gradle project root
+        id: locate
+        run: |
+          FOUND=$(find "$GITHUB_WORKSPACE" -maxdepth 4 -name "settings.gradle.kts" | head -n 1)
+          if [ -z "$FOUND" ]; then
+            echo "Could not find settings.gradle.kts anywhere in the repo (searched 4 levels deep)."
+            echo "Repository contents:"
+            find "$GITHUB_WORKSPACE" -maxdepth 4
+            exit 1
+          fi
+          DIR=$(dirname "$FOUND")
+          echo "Found Gradle project at: $DIR"
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+
       - name: Generate Gradle wrapper
+        working-directory: ${{ steps.locate.outputs.dir }}
         run: gradle wrapper --gradle-version 8.7
 
       - name: Grant execute permission for gradlew
+        working-directory: ${{ steps.locate.outputs.dir }}
         run: chmod +x gradlew
 
       - name: Build debug APK
+        working-directory: ${{ steps.locate.outputs.dir }}
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: jobprep-pk-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ steps.locate.outputs.dir }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
